@@ -20,6 +20,8 @@ export type ApiDeps = {
   store: AppStore;
   llm: Llm | null;
   config: Pick<Config, "asOf" | "queryRowLimit">;
+  /** Public deployment: submitted requests are answered but never stored. */
+  publicDemo?: boolean;
   now?: () => number;
   limiter?: RateLimiter;
   /** Each assistant message can trigger several model calls, so it has its own, tighter limit. */
@@ -73,9 +75,39 @@ export function createHandler(deps: ApiDeps): (req: Request) => Promise<Response
     examples,
   });
 
+  /**
+   * Reads at most `max` bytes. The declared length is checked first, and the stream is
+   * cancelled the moment it exceeds the cap, so an oversized upload is never buffered.
+   */
+  async function readCapped(req: Request, max: number): Promise<string | null> {
+    const declared = Number(req.headers.get("content-length"));
+    if (Number.isFinite(declared) && declared > max) return null;
+    if (!req.body) return "";
+    const reader = req.body.getReader();
+    const chunks: Uint8Array[] = [];
+    let size = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > max) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+    const bytes = new Uint8Array(size);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+    return new TextDecoder().decode(bytes);
+  }
+
   async function readJson(req: Request, maxBody = MAX_BODY): Promise<{ ok: true; value: unknown } | { ok: false; res: Response }> {
-    const text = await req.text();
-    if (text.length > maxBody) return { ok: false, res: json(413, { error: "Request body too large." }) };
+    const text = await readCapped(req, maxBody);
+    if (text === null) return { ok: false, res: json(413, { error: "Request body too large." }) };
     try {
       return { ok: true, value: JSON.parse(text) };
     } catch {
@@ -89,7 +121,7 @@ export function createHandler(deps: ApiDeps): (req: Request) => Promise<Response
     const only = (m: string) => (method === m ? null : json(405, { error: "Method not allowed." }, { Allow: m }));
 
     if (pathname === "/api/health") {
-      return only("GET") ?? json(200, { ok: true, aiEnabled: deps.llm !== null });
+      return only("GET") ?? json(200, { ok: true, aiEnabled: deps.llm !== null, publicDemo: deps.publicDemo === true });
     }
 
     if (pathname === "/api/examples") {
@@ -188,15 +220,19 @@ export function createHandler(deps: ApiDeps): (req: Request) => Promise<Response
         answered = result.ok;
       }
 
-      await deps.store.addRequest({
-        department,
-        text,
-        route: decision.route,
-        reportId: decision.reportId,
-        outcome: answered ? "answered" : "escalated",
-        durationMs: now() - started,
-      });
-      return json(200, { ...decision, outcome: answered ? "answered" : "escalated", answer });
+      // A public demo answers the request but does not keep it: visitors cannot fill the shared
+      // log with junk, and nobody's input is shown to anyone else.
+      if (!deps.publicDemo) {
+        await deps.store.addRequest({
+          department,
+          text,
+          route: decision.route,
+          reportId: decision.reportId,
+          outcome: answered ? "answered" : "escalated",
+          durationMs: now() - started,
+        });
+      }
+      return json(200, { ...decision, outcome: answered ? "answered" : "escalated", answer, logged: !deps.publicDemo });
     }
 
     if (pathname === "/api/reconcile") {

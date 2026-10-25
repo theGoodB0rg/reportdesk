@@ -20,8 +20,8 @@ const post = (h: ReturnType<typeof make>, path: string, body: unknown, headers: 
 
 describe("api: reads", () => {
   it("reports health and whether AI is enabled", async () => {
-    expect(await (await get(make(), "/api/health")).json()).toEqual({ ok: true, aiEnabled: false });
-    expect(await (await get(make({ llm: new FakeLlm([]) }), "/api/health")).json()).toEqual({ ok: true, aiEnabled: true });
+    expect(await (await get(make(), "/api/health")).json()).toEqual({ ok: true, aiEnabled: false, publicDemo: false });
+    expect(await (await get(make({ llm: new FakeLlm([]) }), "/api/health")).json()).toEqual({ ok: true, aiEnabled: true, publicDemo: false });
   });
 
   it("lists reports and runs one", async () => {
@@ -168,6 +168,43 @@ describe("api: request desk and impact", () => {
   it("rejects unknown departments", async () => {
     const res = await post(make(), "/api/requests", { department: "hacking", text: "give me data" });
     expect(res.status).toBe(400);
+  });
+});
+
+describe("api: public demo mode", () => {
+  it("answers requests but does not store them, and says so", async () => {
+    const h = make({ publicDemo: true });
+    const before = (await store.listRequests(5000)).length;
+    const res = await post(h, "/api/requests", { department: "finance", text: "Send me the AR aging report" });
+    expect(await res.json()).toMatchObject({ route: "saved_report", outcome: "answered", logged: false });
+    expect((await store.listRequests(5000)).length).toBe(before);
+  });
+
+  it("advertises itself so the interface can explain what is and is not kept", async () => {
+    const body = (await (await get(make({ publicDemo: true }), "/api/health")).json()) as { publicDemo: boolean };
+    expect(body.publicDemo).toBe(true);
+  });
+});
+
+describe("api: body limits", () => {
+  it("rejects an oversized streamed body that declares no length, without buffering all of it", async () => {
+    const chunk = new TextEncoder().encode("x".repeat(1000));
+    let sent = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (sent++ >= 50) return controller.close();
+        controller.enqueue(chunk);
+      },
+    });
+    const req = new Request("http://t/api/ask", { method: "POST", body: stream, duplex: "half", headers: { "content-type": "application/json" } } as RequestInit);
+    const res = await make()(req);
+    expect(res.status).toBe(413);
+    expect(sent).toBeLessThan(50); // stopped reading once past the cap
+  });
+
+  it("rejects a declared-too-large body before reading it", async () => {
+    const req = new Request("http://t/api/ask", { method: "POST", body: "{}", headers: { "content-length": "999999", "content-type": "application/json" } });
+    expect((await make()(req)).status).toBe(413);
   });
 });
 

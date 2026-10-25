@@ -1,3 +1,4 @@
+import { BudgetExceededError, budgetMessage } from "../budget/index.js";
 import { BUSINESS_DEFINITIONS, SCHEMA_DOC } from "../db/schema.js";
 import type { Database, Row } from "../db/types.js";
 import type { ChatMessage, LlmClient } from "../llm/index.js";
@@ -115,8 +116,9 @@ export async function ask(rawQuestion: string, deps: AskDeps): Promise<AskResult
       reply = await deps.llm.complete(messages);
     } catch (err) {
       // The audit log keeps the cause (e.g. "HTTP 401") so IT can tell a bad key from an outage;
-      // the user only sees the generic message.
-      return fail("llm", "The AI service is unavailable right now.", undefined, err instanceof Error ? err.message : undefined);
+      // the user only sees a generic message, or the budget notice when a daily cap was reached.
+      const reason = err instanceof BudgetExceededError ? budgetMessage(err) : "The AI service is unavailable right now.";
+      return fail("llm", reason, undefined, err instanceof Error ? err.message : undefined);
     }
     if (/^\s*UNSUPPORTED\b/i.test(reply)) {
       return fail("guard", "That is not a read-only question about the business data.");

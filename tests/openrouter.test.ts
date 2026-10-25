@@ -61,6 +61,22 @@ describe("OpenRouterClient", () => {
     expect("tools" in sent).toBe(false);
   });
 
+  it("calls the global fetch detached from the client, as Cloudflare's runtime requires", async () => {
+    const original = globalThis.fetch;
+    let receiver: unknown = "unset";
+    globalThis.fetch = function (this: unknown) {
+      receiver = this;
+      return Promise.resolve(new Response(JSON.stringify({ choices: [{ message: { content: "ok" } }] })));
+    } as unknown as typeof fetch;
+    try {
+      const real = new OpenRouterClient({ apiKey: KEY, model: "test/model" }); // no fetchImpl: uses the global
+      await real.complete([{ role: "user", content: "hi" }]);
+      expect(receiver).not.toBe(real); // `this` must not be the client (Workers throws "Illegal invocation")
+    } finally {
+      globalThis.fetch = original;
+    }
+  });
+
   it("raises LlmError on HTTP errors without leaking the key", async () => {
     const err = await client(reply({ error: "nope" }, 401)).complete([]).catch((e) => e);
     expect(err).toBeInstanceOf(LlmError);

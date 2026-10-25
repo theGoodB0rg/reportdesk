@@ -2,13 +2,21 @@
 
 AI-assisted reporting automation for a business whose reporting requests all land on IT.
 
+**Live demo: https://reportdesk.theregalstarlite.workers.dev** (no sign-up, runs on Cloudflare Workers and D1)
+
 A department asks for a number or a briefing. Instead of a ticket, an **AI analyst** runs the right reports and queries, reads the results, and writes the answer, including a draft email for a person to review. Simpler requests are **triaged** to a saved report or a guarded natural-language query, reports run **on a schedule**, and a **reconciliation** compares the ERP with a second system.
 
 > Everything runs on **synthetic data** (a generated mock ERP). No real company, customer or invoice appears anywhere.
 
 ![A 48-second walkthrough: overview, the AI assistant preparing a collections briefing and email draft, reports, ask-your-data, request desk, reconciliation and impact](docs/video/walkthrough.gif)
 
-*48-second walkthrough (sped up 1.5x; the real recording, [`docs/video/walkthrough.mp4`](docs/video/walkthrough.mp4), is 72 seconds and includes the live model's thinking time).*
+*48-second walkthrough, sped up 1.5x. The full recording, [`docs/video/walkthrough.mp4`](docs/video/walkthrough.mp4), is 72 seconds and includes the live model's thinking time.*
+
+## Try it
+
+Open the [live demo](https://reportdesk.theregalstarlite.workers.dev) and start with **Assistant**: click "Collections briefing" and watch it pull KPIs, run a report, write the briefing, and draft an email marked "Draft, not sent". Then try **Ask your data** with your own question, the **Request desk**, and **Reconciliation**.
+
+Reports, the example questions and reconciliation are unlimited. Free-form AI calls are capped per visitor per day (and overall) so the demo stays free to run; if you reach the cap, you are told so, and everything else keeps working. Requests you submit are answered but never stored.
 
 ## The assistant
 
@@ -24,7 +32,7 @@ Ask for a briefing, a check, or a draft. The model decides which tools to call, 
 | `check_reconciliation` | Compares every ERP invoice with the billing export |
 | `draft_email` | Writes a draft. **It cannot send anything.** A person reviews and sends |
 
-That is the whole list. There is no tool that writes to the ERP or sends a message, which is deliberate: the assistant earns more autonomy by being reliable at reading first (see [`docs/agentic-roadmap.md`](docs/agentic-roadmap.md)).
+That is the whole list. No tool writes to the ERP or sends a message, by design. See [`docs/assistant-design.md`](docs/assistant-design.md).
 
 ## Screenshots
 
@@ -49,7 +57,7 @@ That is the whole list. There is no tool that writes to the ERP or sends a messa
 **Dark theme.**
 ![Overview in the dark theme](docs/screenshots/08-overview-dark.png)
 
-Charts follow a colour palette validated for colour-blind readers, every chart has a "View as table" twin, and the interface is built for keyboard use (skip link, visible focus, labelled controls, tables with announced sort state). It has not been through a formal accessibility audit.
+Charts follow a colour palette validated for colour-blind readers, every chart has a "View as table" twin, and the interface is built for keyboard use: skip link, visible focus, labelled controls, tables with announced sort state.
 
 ## How it fits together
 
@@ -70,11 +78,11 @@ Charts follow a colour palette validated for colour-blind readers, every chart h
 | Integrations across multiple systems | `src/reconcile` (ERP vs billing export), `src/notify` (Slack) |
 | Faster reporting, less IT bottleneck, measurable | `src/metrics` + the Impact page, with its assumptions shown |
 | Evaluate and recommend AI tools | [`docs/ai-tool-evaluation.md`](docs/ai-tool-evaluation.md) |
-| Groundwork for agentic workflows | The assistant itself, plus [`docs/agentic-roadmap.md`](docs/agentic-roadmap.md) |
+| Agentic workflows | The assistant itself, and [`docs/assistant-design.md`](docs/assistant-design.md) |
 | SQL, ERP-shaped data, BI tools | Order-to-cash and procure-to-pay schema (`src/db/schema.ts`); every report downloads as CSV |
 | Work with IT and stakeholders | [`docs/runbook.md`](docs/runbook.md), escalation reasons, audit log |
 
-## Run it
+## Run it locally
 
 Needs Node 22.13 or newer (uses the built-in `node:sqlite`, so there is no native build step).
 
@@ -85,11 +93,11 @@ npm run dev      # http://127.0.0.1:8787
 npm test
 ```
 
-No API key is needed to try most of it: saved reports, triage, reconciliation and five example questions all work. The assistant and free-form questions need an OpenRouter key: copy `.env.example` to `.env` and set `OPENROUTER_API_KEY`.
+Reports, triage, reconciliation and five example questions work without a key. The assistant and free-form questions need an OpenRouter key: copy `.env.example` to `.env` and set `OPENROUTER_API_KEY`. Deploying your own copy to Cloudflare is covered in the [runbook](docs/runbook.md).
 
 ## Security model
 
-The risky part of this project is letting a language model near a database. Model output is treated as untrusted input, and several independent layers sit between it and the data:
+The risky part of this project is letting a language model near a database, and putting that on the public internet. Model output is treated as untrusted input, and independent layers sit between it, the data, and the bill:
 
 | Layer | What it does | Where |
 |---|---|---|
@@ -97,15 +105,17 @@ The risky part of this project is letting a language model near a database. Mode
 | Bounded loop | At most 6 tool rounds and 4 calls per round, then the model is told to answer with what it has | `src/assistant` |
 | Human in the loop | Emails are drafts only, labelled "Draft, not sent" | `src/assistant`, UI |
 | SQL guard | One statement only; `SELECT`/CTE only; forbidden keywords; table allowlist; no quoted identifiers, schema-qualified names, table functions, comma joins or `RECURSIVE`; row limit forced. Applies to both Ask and the assistant | `src/sql-guard` |
-| Read-only connection | SQLite opens the ERP read-only, so even a guard bug cannot write | `src/db/sqlite.ts` |
-| Untrusted input | User questions and tool results are data, not instructions. Client-supplied `system` or `tool` messages are rejected, so the conversation history cannot be forged | `src/assistant`, `src/api` |
-| Minimal exposure | The model is only shown the approved tables; billing and app tables are not in its prompt or allowlist | `src/db/schema.ts` |
-| Separated state | The request log and audit trail live in a different database from the ERP | `src/store` |
+| Read-only data access | The ERP connection refuses writes (SQLite opens read-only locally; a read-only wrapper in front of D1) | `src/db` |
+| Untrusted input | User questions and tool results are data, not instructions. Client-supplied `system` or `tool` messages are rejected, so the conversation cannot be forged | `src/assistant`, `src/api` |
+| Hard AI budget | A daily cap on model calls, per visitor and overall, counted atomically in D1 so it holds across every Worker instance. Visitors are counted by a one-way daily hash, not their address. If the counter cannot be updated, the call is refused | `src/budget` |
+| Rate limiting | Cloudflare's per-client limiter in front (a coarse brake), then tighter in-handler limits, with the assistant tightest because one message can trigger several model calls | `src/worker.ts`, `src/api` |
+| Public demo mode | Submitted requests are answered but never stored, so visitors cannot fill the shared log or see each other's input | `src/api/handler.ts` |
+| Request limits | Bodies are capped by streaming (an oversized upload is cancelled, not buffered); question and message lengths are capped | `src/api/handler.ts` |
+| Minimal exposure | The model only sees the approved tables; billing and app tables are not in its prompt or allowlist | `src/db/schema.ts` |
 | Audit trail | Every generated query and its outcome is recorded, including why an AI call failed | `audit_log` |
-| Abuse limits | Per-client rate limits (tighter for the assistant, since one message can trigger several model calls), body size caps, message length caps | `src/api` |
-| No leakage | Errors from the database, provider or server never reach the client; the config loader never echoes values | `src/api/handler.ts`, `src/config` |
-| Output safety | UI renders model text as DOM nodes, never HTML; CSV export neutralises spreadsheet formulas; CSP forbids inline script | `public/js`, `src/reports` |
-| Secrets | `.env` is gitignored; only `.env.example` (names, no values) is committed; CI scans history with gitleaks | `.gitignore`, `.github/workflows/ci.yml` |
+| No leakage | Database, provider and server errors never reach the client; the config loader never echoes values | `src/api/handler.ts`, `src/config` |
+| Browser hardening | CSP with no inline script or style, HSTS, `nosniff`, no referrer, locked-down Permissions-Policy, no CORS; model text is rendered as DOM nodes, never HTML; CSV export neutralises spreadsheet formulas | `public/_headers`, `public/js` |
+| Secrets | The OpenRouter key is a Cloudflare secret, never in the repo or `wrangler.toml`; `.env` is gitignored; CI scans the full history with gitleaks | `.gitignore`, `.github/workflows/ci.yml` |
 
 ## Architecture
 
@@ -116,6 +126,7 @@ src/
   config/      validated env config (zod)
   db/          Database interface; SQLite and D1 adapters; schema; seed
   llm/         LlmClient / ToolLlmClient interfaces; OpenRouter client
+  budget/      daily AI budget (global + per visitor)
   sql-guard/   validates generated SQL
   assistant/   tool-calling analyst: tools, bounded loop, drafts
   ask/         question -> guarded SQL -> rows (retry, audit)
@@ -131,32 +142,31 @@ src/
 public/        dependency-free ES-module frontend with hand-built SVG charts
 ```
 
-`api/handler.ts` takes a standard `Request` and returns a `Response`, so the same code serves the local Node server and a Cloudflare Worker. Only the database adapter and static-file serving differ.
+`api/handler.ts` takes a standard `Request` and returns a `Response`, so the same code serves the local Node server and the Cloudflare Worker. Only the database adapter and static-file serving differ.
 
-SQLite was chosen over a hosted Postgres for the demo: zero accounts, always on, a fresh clone runs in seconds. The `Database` interface keeps that a replaceable detail; see the runbook for what moving to Postgres involves.
+SQLite locally and D1 in production keep the demo free to run and the repo easy to clone. The `Database` interface keeps the engine a replaceable detail; the runbook covers what moving to Postgres involves.
 
 ## Testing
 
-`npm test` runs the whole suite (168 tests) with no network and no API key; the LLM is replaced by a fake that scripts tool calls and records what it was sent.
+`npm test` runs the whole suite (185 tests) with no network and no API key; the LLM is replaced by a fake that scripts tool calls and records what it was sent.
 
 - **Guard**: adversarial cases (writes, multiple statements, comment tricks, hidden tables, CTE shadowing, quoted identifiers, recursion).
 - **Assistant**: the tool loop with real data flowing back; destructive SQL never executing; unknown tools, malformed arguments and tool-call floods; the forced-answer fallback; drafts that send nothing; forged roles and oversized input rejected; provider failures logged without leaking.
-- **Ask**: retry with feedback, destructive output refused and data verified intact, generic errors, audit entries, row limits.
-- **Reports and KPIs**: each report runs and passes the guard; aging buckets and KPIs reconcile against independent calculations.
-- **API**: routing, validation, rate limiting, CSV, and that a database failure produces a generic 500.
+- **Budget**: per-visitor and global caps, no spend on over-limit visitors, daily reset, no addresses stored, exact behaviour under concurrency, fail-closed on database errors, and the visitor-facing wording.
+- **Public mode and limits**: requests answered but not stored; streamed and declared oversized bodies rejected.
+- **Ask, reports, KPIs**: retry with feedback, destructive output refused and data verified intact, every report passing the guard, aging buckets and KPIs reconciled against independent calculations.
 - **Plumbing**: config, OpenRouter client and tool-call wire format (no key in errors), Slack host allowlist, D1 adapter.
 
-## Limits, stated plainly
+The live deployment was tested as well, from outside: prompt injection and destructive requests, data integrity afterwards, oversized bodies, files that must not be served, headers and CORS, a flood against the rate limiter, and a walk through every page in a browser with no Content-Security-Policy violations.
 
-- **Demo data.** The Impact page's starting figures come from 28 seeded sample requests chosen to look like a real inbox. They illustrate the mechanism; they are not evidence of a real-world result. The "hours saved" figure rests on a stated assumption (45 minutes per manual request), shown on the page.
-- **Generated answers need checking.** The tests prove nothing unsafe executes and that the plumbing behaves. They do not prove the model's answers are right, and the live model has been wrong in instructive ways with `openai/gpt-4o-mini`:
-  - It excluded open orders from "revenue" until the prompt gained explicit business definitions.
-  - It summed `orders.total` after joining line items, which inflated revenue-by-category about 2.4x. A definition now forbids that, and the corrected answer matches an independent calculation exactly for all five categories.
-  - It once pasted an email into the chat instead of using the draft tool, which bypasses the review gate. The prompt now requires the tool.
-  - Some answers are plausible but imperfect: a two-part question answered only in part, and one overdue-balance query that can merge two same-amount invoices.
+## Design notes
 
-  Each fix was verified against the data, but the lesson is the general one: a real rollout needs a scored question set run on every change (see the roadmap). That is why the steps and SQL are always shown beside the answer.
-- **Triage is rule-based.** It is fast, free and explainable, and it will misroute phrasing it has not seen. It is isolated behind one function so an LLM classifier can replace it.
-- **Cloudflare deployment is untested.** The Worker, D1 adapter and `wrangler.toml` exist and the handler is covered by tests, but the deploy has not been run end to end. Steps are in the runbook.
-- **Rate limiting is per process.** On Workers it is per isolate, so it is a brake, not a guarantee.
-- **The ERP is a mock.** It is shaped like an ERP's order-to-cash and procure-to-pay core, but it is not a specific vendor's schema.
+- **Synthetic data, illustrative impact.** The ERP is generated, shaped like an order-to-cash and procure-to-pay core rather than a specific vendor's schema. The Impact page's figures come from 28 seeded sample requests; the "hours saved" number rests on a stated assumption (45 minutes per manual request), shown on the page.
+- **Generated answers are drafts.** Testing against the live model found and fixed real problems, each now covered by an explicit rule or test:
+  - "Revenue" excluded open orders until the prompt carried explicit business definitions.
+  - Revenue by category summed `orders.total` after joining line items, inflating it about 2.4x. A definition now forbids that, and the corrected answer matches an independent calculation for all five categories.
+  - The model once pasted an email into the chat instead of using the draft tool, which would bypass the review step. The prompt now requires the tool.
+  - Calling the OpenRouter client from a Worker failed with "Illegal invocation" because native `fetch` was called detached; Node tolerates it, so only the deployed runtime exposed it. A regression test now covers it.
+
+  Because answers can still be imperfect, every answer shows the steps taken and the SQL that ran.
+- **Triage is rule-based by design.** It is instant, free and explainable to the requester, and it sits behind one function so a model-based classifier could replace it.

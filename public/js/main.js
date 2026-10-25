@@ -237,14 +237,18 @@ async function requests() {
   const submit = el("button", { type: "submit", class: "btn btn-primary" }, "Submit request");
   const outcome = el("div", { class: "request-outcome", "aria-live": "polite" });
   const recent = el("div");
+  const health = await api("/api/health");
+  const publicDemo = health.ok && health.data.publicDemo === true;
 
   async function loadRecent() {
     const { ok, data } = await api("/api/requests");
     recent.replaceChildren(
       ok
         ? dataTable({
-            title: "Recent requests",
-            subtitle: "Visible to everyone using this demo. Please don't enter personal or confidential information.",
+            title: publicDemo ? "Sample requests" : "Recent requests",
+            subtitle: publicDemo
+              ? "A sample inbox that ships with the demo. Requests you submit are answered but not stored, and nobody else can see them."
+              : "Visible to everyone using this demo. Please don't enter personal or confidential information.",
             rows: data.requests,
             columns: ["createdAt", "department", "text", "route", "outcome"],
             overrides: { createdAt: { label: "Date" }, department: { render: labelize }, text: { label: "Request", wrap: true } },
@@ -366,8 +370,9 @@ async function reconcile() {
 }
 
 async function impact() {
-  const { ok, data } = await api("/api/impact");
+  const [{ ok, data }, health] = await Promise.all([api("/api/impact"), api("/api/health")]);
   if (!ok) throw new Error("load");
+  const publicDemo = health.ok && health.data.publicDemo === true;
   const a = data.assumptions;
 
   const weekly = data.byWeek.map((w) => ({
@@ -412,7 +417,7 @@ async function impact() {
         tile({ label: "Median self-serve answer", value: data.medianSelfServeSeconds == null ? "n/a" : `${data.medianSelfServeSeconds}s`, note: `vs. ~${a.hoursToAnswerManually} h assumed manually` }),
       ),
       el("div", { class: "grid-2 flip" }, weeklyCard, routeCard),
-      callout("Read these figures as an illustration", `${a.note} The starting log is seeded demo traffic: sample requests written to resemble a reporting inbox. Requests you submit on the Request desk are added to it.`, "info"),
+      callout("Read these figures as an illustration", `${a.note} The request log is seeded demo traffic: sample requests written to resemble a reporting inbox. ${publicDemo ? "Requests submitted on the Request desk are answered but not stored in this public demo, so these figures stay fixed." : "Requests you submit on the Request desk are added to it."}`, "info"),
     ],
   };
 }

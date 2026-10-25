@@ -89,6 +89,10 @@ CREATE TABLE requests (
   outcome TEXT NOT NULL,
   duration_ms INTEGER NOT NULL
 );
+CREATE TABLE usage (
+  key TEXT PRIMARY KEY,
+  count INTEGER NOT NULL
+);
 CREATE TABLE audit_log (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   ts TEXT NOT NULL,

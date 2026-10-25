@@ -21,7 +21,9 @@ export class OpenRouterClient implements Llm {
   constructor(private readonly opts: OpenRouterOptions) {
     this.baseUrl = opts.baseUrl ?? "https://openrouter.ai/api/v1";
     this.timeoutMs = opts.timeoutMs ?? 30_000;
-    this.fetchImpl = opts.fetchImpl ?? fetch;
+    // Not `fetch` directly: stored as a property and called as `this.fetchImpl(...)`, Cloudflare's
+    // runtime rejects native fetch with "Illegal invocation" (Node tolerates it).
+    this.fetchImpl = opts.fetchImpl ?? ((input, init) => fetch(input, init));
   }
 
   /** One authenticated request. Errors never carry the key or the underlying network error. */

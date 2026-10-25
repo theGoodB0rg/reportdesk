@@ -23,6 +23,17 @@ describe("loadConfig", () => {
     expect(c.asOf).toBe("2026-01-31");
   });
 
+  it("reads public-demo settings with safe defaults", () => {
+    expect(loadConfig({})).toMatchObject({ publicDemo: false, aiDailyBudget: 400, aiClientDailyBudget: 40 });
+    expect(loadConfig({ PUBLIC_DEMO: "true", AI_DAILY_BUDGET: "150", AI_CLIENT_DAILY_BUDGET: "12" })).toMatchObject({
+      publicDemo: true,
+      aiDailyBudget: 150,
+      aiClientDailyBudget: 12,
+    });
+    expect(() => loadConfig({ PUBLIC_DEMO: "yes" })).toThrow(/PUBLIC_DEMO/);
+    expect(() => loadConfig({ AI_DAILY_BUDGET: "0" })).toThrow(/AI_DAILY_BUDGET/);
+  });
+
   it("rejects invalid values and names the variable", () => {
     expect(() => loadConfig({ QUERY_ROW_LIMIT: "0" })).toThrow(/QUERY_ROW_LIMIT/);
     expect(() => loadConfig({ AS_OF: "yesterday" })).toThrow(/AS_OF/);

@@ -1,29 +1,40 @@
 name = "reportdesk"
 main = "src/worker.ts"
 compatibility_date = "2026-01-01"
+workers_dev = true
 
 [assets]
 directory = "./public"
 binding = "ASSETS"
-# Run the Worker first for /api/*; everything else is served from ./public.
+# The Worker runs first for /api/*; everything else is served straight from ./public.
 run_worker_first = ["/api/*"]
 
 [vars]
 AS_OF = "2026-09-30"
 QUERY_ROW_LIMIT = "500"
 OPENROUTER_MODEL = "openai/gpt-4o-mini"
+# Public deployment: visitors' requests are answered but never stored.
+PUBLIC_DEMO = "true"
+# Hard daily caps on model calls: shared across all visitors, and per visitor.
+AI_DAILY_BUDGET = "400"
+AI_CLIENT_DAILY_BUDGET = "40"
 
-# Create with:  npx wrangler d1 create reportdesk-erp   (and reportdesk-app)
-# then paste the printed ids below. Database ids are not secrets.
+# D1 database ids are identifiers, not secrets.
 [[d1_databases]]
 binding = "ERP"
 database_name = "reportdesk-erp"
-database_id = "REPLACE_WITH_ERP_DATABASE_ID"
+database_id = "7c302fb3-1ceb-4cc3-baf0-b0139b9f4b2d"
 
 [[d1_databases]]
 binding = "APP"
 database_name = "reportdesk-app"
-database_id = "REPLACE_WITH_APP_DATABASE_ID"
+database_id = "1f650feb-d06a-446c-998b-04cd3c62a2c5"
 
-# The OpenRouter key is a secret and must NOT go in this file:
+# Per-client rate limit enforced by Cloudflare across every instance.
+[[ratelimits]]
+name = "RATE_LIMITER"
+namespace_id = "1001"
+simple = { limit = 120, period = 60 }
+
+# The OpenRouter key is a secret and is never written to this file:
 #   npx wrangler secret put OPENROUTER_API_KEY

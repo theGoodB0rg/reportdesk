@@ -10,6 +10,9 @@ const schema = z.object({
   APP_DB_PATH: z.preprocess(blankToUndefined, z.string().default("./data/app.db")),
   QUERY_ROW_LIMIT: z.preprocess(blankToUndefined, z.coerce.number().int().min(1).max(5000).default(500)),
   AS_OF: z.preprocess(blankToUndefined, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "must be YYYY-MM-DD").default("2026-09-30")),
+  PUBLIC_DEMO: z.preprocess(blankToUndefined, z.enum(["true", "false"]).default("false")).transform((v) => v === "true"),
+  AI_DAILY_BUDGET: z.preprocess(blankToUndefined, z.coerce.number().int().min(1).max(100000).default(400)),
+  AI_CLIENT_DAILY_BUDGET: z.preprocess(blankToUndefined, z.coerce.number().int().min(1).max(10000).default(40)),
   PORT: z.preprocess(blankToUndefined, z.coerce.number().int().min(1).max(65535).default(8787)),
 });
 
@@ -21,6 +24,10 @@ export type Config = {
   queryRowLimit: number;
   asOf: string;
   port: number;
+  /** Public deployment: visitors' requests are answered but never stored. */
+  publicDemo: boolean;
+  aiDailyBudget: number;
+  aiClientDailyBudget: number;
 };
 
 /**
@@ -43,5 +50,8 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     queryRowLimit: e.QUERY_ROW_LIMIT,
     asOf: e.AS_OF,
     port: e.PORT,
+    publicDemo: e.PUBLIC_DEMO,
+    aiDailyBudget: e.AI_DAILY_BUDGET,
+    aiClientDailyBudget: e.AI_CLIENT_DAILY_BUDGET,
   };
 }

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BudgetExceededError, budgetMessage } from "../budget/index.js";
 import { BUSINESS_DEFINITIONS, SCHEMA_DOC } from "../db/schema.js";
 import type { Database } from "../db/types.js";
 import { computeKpis } from "../kpis/index.js";
@@ -260,7 +261,7 @@ export async function runAssistant(history: ChatTurn[], deps: AssistantDeps): Pr
   } catch (err) {
     // The cause goes to the audit log; the user only sees the generic message.
     await deps.audit.record({ question, outcome: "error", reason: err instanceof Error ? err.message : "unknown error" });
-    return { ok: false, stage: "llm", reason: "The AI service is unavailable right now." };
+    return { ok: false, stage: "llm", reason: err instanceof BudgetExceededError ? budgetMessage(err) : "The AI service is unavailable right now." };
   }
   return { ok: false, stage: "llm", reason: "The assistant did not finish." };
 }

@@ -14,7 +14,7 @@ Departments ask IT for the same few reports and the occasional one-off number. I
 | **LLM text-to-SQL behind guardrails** (chosen for ad-hoc) | Model drafts SQL; code validates and executes read-only | Long tail of one-off questions | Wrong or unsafe SQL if unguarded; answers can be confidently wrong |
 | **Vendor BI natural-language features** | Q&A built into a BI product | The client already licenses that BI tool and the data is modelled in it | Lock-in; limited control over how queries are checked and logged |
 | **Workflow platform (n8n, Make, Zapier)** | Visual glue between systems | Many SaaS-to-SaaS handoffs, non-engineers maintain it | Awkward for tested, versioned logic; per-task costs at scale |
-| **Autonomous agent with write access** | Model takes actions in the ERP | Not now | Highest blast radius; no case for it before read-only is trusted |
+| **Autonomous agent with write access** | Model takes actions in the ERP | Out of scope by design | Highest blast radius; read-only plus human-reviewed drafts delivers the value without it |
 
 ## Criteria and how they were weighed
 
@@ -34,7 +34,7 @@ Choosing "LLM text-to-SQL behind guardrails" was right for the long tail, but li
 - Use **saved reports for the repeating 80%**, and a **guarded text-to-SQL path for the long tail**.
 - Keep the **model provider swappable** (OpenRouter here, because one key reaches many models and the choice can be revisited without code changes).
 - Keep **BI tools in the loop** via CSV export of every report, so existing dashboards and Excel users are not forced onto a new front end.
-- Treat **agentic workflows as phase two**, built on the narrow, logged tool layer that already exists (see `agentic-roadmap.md`).
+- Build the **agentic layer on a narrow, logged tool set**: the assistant picks among named read-only tools and can only draft, never send (see `assistant-design.md`).
 
 ## What I would ask a real client before building
 
@@ -45,7 +45,6 @@ Choosing "LLM text-to-SQL behind guardrails" was right for the long tail, but li
 - Who reviews the audit log, and what counts as an incident?
 - What is the data-processing position on sending schema and questions to an external LLM API?
 
-## Known limits of this evaluation
+## Scope of this evaluation
 
-- Text-to-SQL accuracy was not benchmarked here. The tests prove the safety properties (nothing unsafe executes) and the plumbing (retry, audit, limits), not that the model's answers are correct. A production rollout needs a question set with known answers, scored regularly.
-- Cost and latency figures are deliberately absent; they depend on the chosen model and traffic.
+It compares approaches and records the decision and the evidence behind it. It does not rank vendors: features and prices change, and the right model depends on the client's data, volume and policy. The tests prove the safety properties (nothing unsafe executes) and the plumbing (retry, audit, budgets); correctness of generated answers was checked against independent calculations, as described above, which is why every answer shows its steps and SQL.
