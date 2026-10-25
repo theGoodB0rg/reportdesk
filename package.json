@@ -1,0 +1,26 @@
+{
+  "name": "reportdesk",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Self-serve reporting automation over a mock ERP: scheduled reports, guarded natural-language SQL, request triage.",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "seed": "tsx scripts/seed.ts",
+    "dev": "tsx src/server.ts",
+    "digest": "tsx scripts/run-reports.ts",
+    "export:d1": "tsx scripts/export-d1.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.12"
+  },
+  "dependencies": {
+    "zod": "^4.6.7"
+  }
+}

@@ -1,0 +1,34 @@
+name: Weekly digest
+
+# The scheduled-report half of the project: runs every saved report plus the
+# ERP/billing reconciliation with no human involved, then publishes the result.
+
+on:
+  schedule:
+    - cron: "0 7 * * 1" # Mondays 07:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # The demo ERP is synthetic, so it is rebuilt each run. In a real deployment
+      # this step is replaced by pointing ERP_DB_PATH (or a new adapter) at the real source.
+      - run: npm run seed
+      - run: npm run digest
+        env:
+          # Optional repository secret. When unset the digest is only saved as an artifact.
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: weekly-digest
+          path: out/digest.md

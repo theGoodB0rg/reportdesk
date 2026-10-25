@@ -1,0 +1,29 @@
+name = "reportdesk"
+main = "src/worker.ts"
+compatibility_date = "2026-01-01"
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+# Run the Worker first for /api/*; everything else is served from ./public.
+run_worker_first = ["/api/*"]
+
+[vars]
+AS_OF = "2026-09-30"
+QUERY_ROW_LIMIT = "500"
+OPENROUTER_MODEL = "openai/gpt-4o-mini"
+
+# Create with:  npx wrangler d1 create reportdesk-erp   (and reportdesk-app)
+# then paste the printed ids below. Database ids are not secrets.
+[[d1_databases]]
+binding = "ERP"
+database_name = "reportdesk-erp"
+database_id = "REPLACE_WITH_ERP_DATABASE_ID"
+
+[[d1_databases]]
+binding = "APP"
+database_name = "reportdesk-app"
+database_id = "REPLACE_WITH_APP_DATABASE_ID"
+
+# The OpenRouter key is a secret and must NOT go in this file:
+#   npx wrangler secret put OPENROUTER_API_KEY

@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ReportDesk</title>
+  <meta name="description" content="Self-serve reporting automation over a mock ERP: scheduled reports, guarded natural-language SQL, request triage and reconciliation.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%232a78d6'/%3E%3Cpath d='M8 22V14M16 22V9M24 22v-6' stroke='white' stroke-width='3' stroke-linecap='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to main content</a>
+
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span class="brand-name">ReportDesk</span>
+      </div>
+      <nav class="nav" id="nav" aria-label="Sections"></nav>
+      <p class="sidebar-note">Synthetic demo data. No real company, customer or invoice appears anywhere.</p>
+    </aside>
+
+    <div class="content">
+      <header class="topbar">
+        <span id="asof" class="topbar-item"></span>
+        <span id="ai-pill" class="topbar-item pill-status"></span>
+        <button id="theme" class="icon-btn" type="button" aria-label="Switch theme"></button>
+      </header>
+      <main id="main" tabindex="-1">
+        <div id="view" aria-busy="true"></div>
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="/js/main.js"></script>
+</body>
+</html>
