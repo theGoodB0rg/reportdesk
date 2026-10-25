@@ -597,8 +597,8 @@ async function about() {
           el("p", {}, "ReportDesk shows how a business can stop waiting on IT for reports. An AI analyst runs the reports and queries, writes the answer, and drafts the follow-up email for a person to check. It runs on made-up data, so nothing real is at risk."),
         ),
         card(
-          el("h2", { class: "card-title" }, "How it was built"),
-          el("p", {}, "Designed and directed by Olorunfemi John, and built with AI coding tools. Read-only access, a daily AI budget and human review are built in. The code is public."),
+          el("h2", { class: "card-title" }, "How it stays safe"),
+          el("p", {}, "Read-only data access, checked queries, a daily AI budget and human review are built in. The code is public, so you can see exactly how it works."),
         ),
       ),
       el(
