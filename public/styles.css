@@ -112,7 +112,7 @@ h1, h2, p { margin: 0; }
 .nav a:hover { background: var(--surface-2); color: var(--text); }
 .nav a[aria-current="page"] { background: var(--accent-tint); color: var(--text); font-weight: 600; }
 .nav a[aria-current="page"] .icon { color: var(--accent); }
-.sidebar-note { margin-top: auto; padding: 0 8px; font-size: 12.5px; color: var(--text-3); }
+.sidebar-note { padding: 0 8px; font-size: 12.5px; color: var(--text-3); }
 
 .content { min-width: 0; }
 .topbar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; padding: 14px 32px 0; }
@@ -293,7 +293,7 @@ svg line.axis { stroke: var(--axis); stroke-width: 1; }
   .sidebar { position: static; height: auto; flex-direction: row; align-items: center; gap: 12px; padding: 10px 14px; border-right: 0; border-bottom: 1px solid var(--border); overflow-x: auto; }
   .nav { flex-direction: row; }
   .nav a { white-space: nowrap; }
-  .sidebar-note { display: none; }
+  .sidebar-foot { display: none; }
   .topbar { padding: 10px 16px 0; }
   main { padding: 8px 16px 40px; }
   .steps li { grid-template-columns: 28px 1fr; }
@@ -347,3 +347,12 @@ svg line.axis { stroke: var(--axis); stroke-width: 1; }
 .composer-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
 .composer-actions { display: flex; gap: 8px; align-items: center; }
 @media (max-width: 700px) { .suggestions { grid-template-columns: minmax(0, 1fr); } .chat-row.user .bubble { max-width: 90%; } }
+
+/* Built-by footer and About page --------------------------------------- */
+.sidebar-foot { margin-top: auto; display: flex; flex-direction: column; gap: 8px; padding: 0 8px; }
+.sidebar-foot .sidebar-note { margin: 0; padding: 0; }
+.sidebar-by { margin: 0; font-size: 13px; color: var(--text-2); }
+.sidebar-by a { color: var(--link); font-weight: 600; }
+.about-cta p { color: var(--text-2); max-width: 62ch; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.cta-row .btn { text-decoration: none; }

@@ -1,5 +1,5 @@
 import { barChart, chartCard, columnChart, stackedColumns } from "./charts.js";
-import { api, compactMoney, compactNumber, dateLabel, el, humanize, icon, int, labelize, money, moneyWhole, postJson, richText, shortDate } from "./lib.js";
+import { PORTFOLIO_URL, REPO_URL, api, compactMoney, compactNumber, dateLabel, el, humanize, icon, int, labelize, money, moneyWhole, postJson, richText, shortDate, track, trackSessionStart } from "./lib.js";
 import { dataTable, formatValue, inferType, pill } from "./table.js";
 
 const $ = (id) => document.getElementById(id);
@@ -152,6 +152,7 @@ async function ask() {
   const submit = el("button", { type: "submit", class: "btn btn-primary" }, icon("send", 16), "Ask");
 
   async function run(question) {
+    track("ask_run");
     submit.disabled = true;
     result.replaceChildren(message("Writing and checking the query…"));
     const { ok, data } = await postJson("/api/ask", { question });
@@ -264,6 +265,7 @@ async function requests() {
       class: "stack",
       onsubmit: async (e) => {
         e.preventDefault();
+        track("request_submit");
         submit.disabled = true;
         outcome.replaceChildren(message("Routing your request…"));
         const { ok, data } = await postJson("/api/requests", { department: dept.value, text: text.value });
@@ -527,6 +529,7 @@ async function assistant() {
   async function submit(text) {
     const content = text.trim();
     if (!content || send.disabled) return;
+    track("assistant_run");
     const history = chat.messages
       .filter((m) => !m.pending && !m.error)
       .map((m) => ({ role: m.role, content: m.content }))
@@ -578,9 +581,41 @@ async function assistant() {
   };
 }
 
+/* About ------------------------------------------------------------------- */
+
+async function about() {
+  const link = (href, label, cls, trackName) => el("a", { class: cls, href, target: "_blank", rel: "noopener", "data-track": trackName }, label);
+  return {
+    title: "About",
+    subtitle: "Why this exists, and who built it.",
+    nodes: [
+      el(
+        "div",
+        { class: "grid-2 even" },
+        card(
+          el("h2", { class: "card-title" }, "What this is"),
+          el("p", {}, "ReportDesk shows how a business can stop waiting on IT for reports. An AI analyst runs the reports and queries, writes the answer, and drafts the follow-up email for a person to check. It runs on made-up data, so nothing real is at risk."),
+        ),
+        card(
+          el("h2", { class: "card-title" }, "How it was built"),
+          el("p", {}, "Designed and directed by Olorunfemi John, and built with AI coding tools. Read-only access, a daily AI budget and human review are built in. The code is public."),
+        ),
+      ),
+      el(
+        "section",
+        { class: "card about-cta" },
+        el("h2", { class: "card-title" }, "Using this at your company? Let's talk."),
+        el("p", {}, "Connecting it to your ERP, your reports and your definitions is the real work. I can adapt it to fit."),
+        el("div", { class: "cta-row" }, link(PORTFOLIO_URL, "Let's talk", "btn btn-primary", "click_portfolio"), link(REPO_URL, "See the code", "btn", "click_repo")),
+      ),
+      el("p", { class: "note" }, "Anonymous usage counts only: which pages are viewed, the country and where a visit came from. No cookies, no addresses, no personal data, and browsers that send Do Not Track are not counted."),
+    ],
+  };
+}
+
 /* Shell: routing, theme, status ------------------------------------------- */
 
-const pages = { overview, assistant, reports, ask, requests, reconcile, impact };
+const pages = { overview, assistant, reports, ask, requests, reconcile, impact, about };
 const view = $("view");
 let renderToken = 0;
 
@@ -613,6 +648,7 @@ async function route() {
   if (document.body.dataset.ready) heading.focus({ preventScroll: true });
   document.body.dataset.ready = "1";
   window.scrollTo(0, 0);
+  track(`view_${name}`);
 }
 
 function initTheme() {
@@ -633,7 +669,7 @@ function initTheme() {
 }
 
 function initNav() {
-  const items = [["overview", "Overview"], ["assistant", "Assistant"], ["reports", "Reports"], ["ask", "Ask your data"], ["requests", "Request desk"], ["reconcile", "Reconciliation"], ["impact", "Impact"]];
+  const items = [["overview", "Overview"], ["assistant", "Assistant"], ["reports", "Reports"], ["ask", "Ask your data"], ["requests", "Request desk"], ["reconcile", "Reconciliation"], ["impact", "Impact"], ["about", "About"]];
   $("nav").replaceChildren(...items.map(([id, label]) => el("a", { href: `#${id}` }, icon(id), el("span", {}, label))));
 }
 
@@ -645,8 +681,17 @@ async function initStatus() {
   }
 }
 
+// Counts CSV exports and the "built by" links, wherever they appear.
+document.addEventListener("click", (e) => {
+  const a = e.target instanceof Element ? e.target.closest("a") : null;
+  if (!a) return;
+  if (a.dataset.track) track(a.dataset.track);
+  else if (a.hasAttribute("download")) track("export_csv");
+});
+
 initTheme();
 initNav();
 initStatus();
+trackSessionStart();
 window.addEventListener("hashchange", route);
 route();

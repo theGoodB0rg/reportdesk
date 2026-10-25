@@ -2,7 +2,7 @@
 
 AI-assisted reporting automation for a business whose reporting requests all land on IT.
 
-**Live demo: https://reportdesk.theregalstarlite.workers.dev** (no sign-up, runs on Cloudflare Workers and D1)
+**Live demo: [reportdesk.thegoodb0rg.workers.dev](https://reportdesk.thegoodb0rg.workers.dev/?ref=github)** (no sign-up, runs on Cloudflare Workers and D1)
 
 A department asks for a number or a briefing. Instead of a ticket, an **AI analyst** runs the right reports and queries, reads the results, and writes the answer, including a draft email for a person to review. Simpler requests are **triaged** to a saved report or a guarded natural-language query, reports run **on a schedule**, and a **reconciliation** compares the ERP with a second system.
 
@@ -14,9 +14,13 @@ A department asks for a number or a briefing. Instead of a ticket, an **AI analy
 
 ## Try it
 
-Open the [live demo](https://reportdesk.theregalstarlite.workers.dev) and start with **Assistant**: click "Collections briefing" and watch it pull KPIs, run a report, write the briefing, and draft an email marked "Draft, not sent". Then try **Ask your data** with your own question, the **Request desk**, and **Reconciliation**.
+Open the [live demo](https://reportdesk.thegoodb0rg.workers.dev) and start with **Assistant**: click "Collections briefing" and watch it pull KPIs, run a report, write the briefing, and draft an email marked "Draft, not sent". Then try **Ask your data** with your own question, the **Request desk**, and **Reconciliation**.
 
 Reports, the example questions and reconciliation are unlimited. Free-form AI calls are capped per visitor per day (and overall) so the demo stays free to run; if you reach the cap, you are told so, and everything else keeps working. Requests you submit are answered but never stored.
+
+## Using this at your company? Let's talk.
+
+Connecting it to your ERP, your reports and your own definitions is the real work. I can adapt it to fit: **[my portfolio](https://thegoodb0rg.pages.dev/?ref=reportdesk-github)**.
 
 ## The assistant
 
@@ -115,6 +119,7 @@ The risky part of this project is letting a language model near a database, and 
 | Audit trail | Every generated query and its outcome is recorded, including why an AI call failed | `audit_log` |
 | No leakage | Database, provider and server errors never reach the client; the config loader never echoes values | `src/api/handler.ts`, `src/config` |
 | Browser hardening | CSP with no inline script or style, HSTS, `nosniff`, no referrer, locked-down Permissions-Policy, no CORS; model text is rendered as DOM nodes, never HTML; CSV export neutralises spreadsheet formulas | `public/_headers`, `public/js` |
+| Privacy-first analytics | Page views and feature use are counted per hour with only a country and a source label. A fixed list of event names, no cookies, no addresses, no free text, and Do Not Track is honoured | `src/analytics` |
 | Secrets | The OpenRouter key is a Cloudflare secret, never in the repo or `wrangler.toml`; `.env` is gitignored; CI scans the full history with gitleaks | `.gitignore`, `.github/workflows/ci.yml` |
 
 ## Architecture
@@ -148,12 +153,13 @@ SQLite locally and D1 in production keep the demo free to run and the repo easy 
 
 ## Testing
 
-`npm test` runs the whole suite (185 tests) with no network and no API key; the LLM is replaced by a fake that scripts tool calls and records what it was sent.
+`npm test` runs the whole suite (196 tests) with no network and no API key; the LLM is replaced by a fake that scripts tool calls and records what it was sent.
 
 - **Guard**: adversarial cases (writes, multiple statements, comment tricks, hidden tables, CTE shadowing, quoted identifiers, recursion).
 - **Assistant**: the tool loop with real data flowing back; destructive SQL never executing; unknown tools, malformed arguments and tool-call floods; the forced-answer fallback; drafts that send nothing; forged roles and oversized input rejected; provider failures logged without leaking.
 - **Budget**: per-visitor and global caps, no spend on over-limit visitors, daily reset, no addresses stored, exact behaviour under concurrency, fail-closed on database errors, and the visitor-facing wording.
 - **Public mode and limits**: requests answered but not stored; streamed and declared oversized bodies rejected.
+- **Analytics**: unknown event names and bad sources rejected, hourly counting, no identifying columns, floods dropped, and a failing counter never breaks a visit.
 - **Ask, reports, KPIs**: retry with feedback, destructive output refused and data verified intact, every report passing the guard, aging buckets and KPIs reconciled against independent calculations.
 - **Plumbing**: config, OpenRouter client and tool-call wire format (no key in errors), Slack host allowlist, D1 adapter.
 

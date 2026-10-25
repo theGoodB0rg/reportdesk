@@ -26,6 +26,7 @@ export function svg(tag, attrs = {}, ...children) {
 }
 
 const ICONS = {
+  about: "M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20z M12 16v-4 M12 8h.01",
   assistant: "M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z",
   overview: "M3 3h8v8H3z M13 3h8v5h-8z M13 10h8v11h-8z M3 13h8v8H3z",
   reports: "M6 2h9l5 5v15H6z M14 2v6h6 M9 13h8 M9 17h8",
@@ -48,6 +49,48 @@ export function icon(name, size = 18) {
     { class: "icon", width: size, height: size, viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", "stroke-width": 1.8, "stroke-linecap": "round", "stroke-linejoin": "round", "aria-hidden": "true", focusable: "false" },
     svg("path", { d: ICONS[name] ?? "" }),
   );
+}
+
+export const PORTFOLIO_URL = "https://thegoodb0rg.pages.dev/?ref=reportdesk-demo";
+export const REPO_URL = "https://github.com/theGoodB0rg/reportdesk";
+
+/* Privacy-first usage counts: a name from a fixed list plus where the visit came from. No cookies, no
+   identifiers; sessionStorage only remembers the source label for this tab, and Do Not Track is honoured. */
+
+const doNotTrack = () => navigator.doNotTrack === "1" || window.doNotTrack === "1" || navigator.globalPrivacyControl === true;
+
+/** `?ref=application` wins, then the referring site's host, else "direct". Remembered for the tab. */
+function sourceLabel() {
+  try {
+    const saved = sessionStorage.getItem("rd_src");
+    if (saved) return saved;
+  } catch { /* storage may be blocked */ }
+  let source = "direct";
+  const ref = new URLSearchParams(location.search).get("ref");
+  if (ref) source = ref;
+  else if (document.referrer) {
+    try {
+      const host = new URL(document.referrer).hostname;
+      if (host && host !== location.hostname) source = host;
+    } catch { /* ignore a malformed referrer */ }
+  }
+  try { sessionStorage.setItem("rd_src", source); } catch { /* ignore */ }
+  return source;
+}
+
+export function track(name) {
+  if (doNotTrack()) return;
+  try {
+    fetch("/api/event", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name, source: sourceLabel() }), keepalive: true }).catch(() => {});
+  } catch { /* counting must never break the page */ }
+}
+
+export function trackSessionStart() {
+  try {
+    if (sessionStorage.getItem("rd_started")) return;
+    sessionStorage.setItem("rd_started", "1");
+  } catch { /* if storage is blocked this counts every load, which is acceptable */ }
+  track("session_start");
 }
 
 export async function api(path, options) {

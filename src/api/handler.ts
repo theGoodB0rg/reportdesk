@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EventStore, isEventName } from "../analytics/index.js";
 import { ask, type AskResult } from "../ask/index.js";
 import { runAssistant } from "../assistant/index.js";
 import { exampleQuestions } from "../ask/examples.js";
@@ -26,6 +27,9 @@ export type ApiDeps = {
   limiter?: RateLimiter;
   /** Each assistant message can trigger several model calls, so it has its own, tighter limit. */
   assistantLimiter?: RateLimiter;
+  /** Optional privacy-first usage counts. Without it, /api/event accepts and discards. */
+  analytics?: EventStore;
+  eventLimiter?: RateLimiter;
   log?: (message: string) => void;
 };
 
@@ -36,6 +40,7 @@ const askBody = z.object({ question: z.string().max(500) });
 const assistantBody = z.object({
   messages: z.array(z.object({ role: z.enum(["user", "assistant"]), content: z.string().max(1000) })).min(1).max(12),
 });
+const eventBody = z.object({ name: z.string().max(40), source: z.string().max(80).optional() });
 const requestBody = z.object({
   department: z.enum(DEPARTMENTS),
   text: z.string().trim().min(3).max(500),
@@ -62,6 +67,7 @@ export function createHandler(deps: ApiDeps): (req: Request) => Promise<Response
   const now = deps.now ?? Date.now;
   const limiter = deps.limiter ?? new RateLimiter(20, 60_000);
   const assistantLimiter = deps.assistantLimiter ?? new RateLimiter(8, 60_000);
+  const eventLimiter = deps.eventLimiter ?? new RateLimiter(90, 60_000);
   const log = deps.log ?? ((m: string) => console.error(m));
   const examples = exampleQuestions(deps.config.asOf);
 
@@ -122,6 +128,22 @@ export function createHandler(deps: ApiDeps): (req: Request) => Promise<Response
 
     if (pathname === "/api/health") {
       return only("GET") ?? json(200, { ok: true, aiEnabled: deps.llm !== null, publicDemo: deps.publicDemo === true });
+    }
+
+    if (pathname === "/api/event") {
+      const denied = only("POST");
+      if (denied) return denied;
+      if (!eventLimiter.allow(clientKey(req), now())) return new Response(null, { status: 204 }); // quietly drop floods
+      const body = await readJson(req, 1_000);
+      if (!body.ok) return body.res;
+      const parsed = eventBody.safeParse(body.value);
+      if (!parsed.success || !isEventName(parsed.data.name)) return json(400, { error: "Unknown event." });
+      try {
+        await deps.analytics?.record({ name: parsed.data.name, source: parsed.data.source, country: req.headers.get("cf-ipcountry") });
+      } catch (err) {
+        log(`analytics write failed: ${err instanceof Error ? err.message : String(err)}`); // never let counting break a visit
+      }
+      return new Response(null, { status: 204, headers: BASE_HEADERS });
     }
 
     if (pathname === "/api/examples") {

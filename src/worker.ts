@@ -12,6 +12,7 @@
  */
 import { createHandler } from "./api/handler.js";
 import { RateLimiter } from "./api/rate-limit.js";
+import { EventStore } from "./analytics/index.js";
 import { BudgetedLlm, UsageBudget } from "./budget/index.js";
 import { loadConfig } from "./config/index.js";
 import { D1Adapter, type D1Like } from "./db/d1.js";
@@ -80,6 +81,7 @@ export default {
       llm,
       config,
       publicDemo: config.publicDemo,
+      analytics: new EventStore(app),
       limiter,
     })(req);
   },

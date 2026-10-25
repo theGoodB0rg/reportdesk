@@ -89,6 +89,14 @@ CREATE TABLE requests (
   outcome TEXT NOT NULL,
   duration_ms INTEGER NOT NULL
 );
+CREATE TABLE events (
+  hour TEXT NOT NULL,
+  name TEXT NOT NULL,
+  source TEXT NOT NULL,
+  country TEXT NOT NULL,
+  count INTEGER NOT NULL,
+  PRIMARY KEY (hour, name, source, country)
+);
 CREATE TABLE usage (
   key TEXT PRIMARY KEY,
   count INTEGER NOT NULL

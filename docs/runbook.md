@@ -64,6 +64,22 @@ A public deployment spends real money through one API key, so cost is bounded in
 - **Nothing is stored from visitors** (`PUBLIC_DEMO=true`), and visitors are counted by a one-way daily hash, not their address.
 - **Look at usage:** `npx wrangler d1 execute reportdesk-app --remote --command "SELECT key, count FROM usage"`, and the `audit_log` table for every generated query and why any AI call failed.
 
+## Usage analytics
+
+The deployment counts page views and a few actions (assistant runs, CSV exports, clicks on the "built by" links) in the `events` table of the `APP` database, one row per hour, event, source and country. There are no cookies, no addresses and no free text, and browsers that send Do Not Track are not counted.
+
+Tag a link to see where visits come from: add `?ref=` and a short label, for example `/?ref=application` or `/?ref=loom`. Visits with no tag are labelled by the referring site, or `direct`.
+
+```bash
+# visits by source, last 7 days
+npx wrangler d1 execute reportdesk-app --remote --command "SELECT source, SUM(count) AS views FROM events WHERE name='session_start' AND hour >= strftime('%Y-%m-%dT%H', 'now', '-7 days') GROUP BY source ORDER BY views DESC"
+
+# what people used
+npx wrangler d1 execute reportdesk-app --remote --command "SELECT name, SUM(count) AS total FROM events GROUP BY name ORDER BY total DESC"
+```
+
+The same tables can be browsed in the Cloudflare dashboard under Workers & Pages, D1, `reportdesk-app`.
+
 ## Add a report
 
 1. Add an entry to `REPORTS` in `src/reports/index.ts` (id, title, SQL, keywords).
